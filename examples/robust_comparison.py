@@ -421,8 +421,8 @@ def run_robust_comparison():
     ax6.tick_params(axis='x', rotation=45)
 
     plt.tight_layout()
-    plt.savefig("robust_comparison.png", dpi=150, bbox_inches="tight")
-    print("\nPlot saved to robust_comparison.png")
+    plt.savefig("examples/plots/robust_comparison.png", dpi=150, bbox_inches="tight")
+    print("\nPlot saved to examples/plots/robust_comparison.png")
     plt.show()
 
     # Print key insights

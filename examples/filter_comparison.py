@@ -310,8 +310,8 @@ def run_comparison():
     ax6.grid(True, alpha=0.3, axis="y")
 
     plt.tight_layout()
-    plt.savefig("filter_comparison.png", dpi=150, bbox_inches="tight")
-    print("\nPlot saved to filter_comparison.png")
+    plt.savefig("examples/plots/filter_comparison.png", dpi=150, bbox_inches="tight")
+    print("\nPlot saved to examples/plots/filter_comparison.png")
     plt.show()
 
     # Print key insights

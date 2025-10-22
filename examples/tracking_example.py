@@ -162,8 +162,8 @@ def run_tracking_example() -> None:
         plt.grid(True)
 
         plt.tight_layout()
-        plt.savefig("tracking_example.png", dpi=150)
-        print("\nPlot saved to tracking_example.png")
+        plt.savefig("examples/plots/tracking_example.png", dpi=150)
+        print("\nPlot saved to examples/plots/tracking_example.png")
         plt.show()
     except Exception as e:
         print(f"\nNote: Plotting failed ({e}), but simulation completed successfully.")

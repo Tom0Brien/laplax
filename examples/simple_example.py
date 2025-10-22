@@ -160,8 +160,8 @@ def run_simple_example() -> None:
         ax.grid(True, alpha=0.3)
 
         plt.tight_layout()
-        plt.savefig("simple_example.png", dpi=150, bbox_inches="tight")
-        print("\nPlot saved to simple_example.png")
+        plt.savefig("examples/plots/simple_example.png", dpi=150, bbox_inches="tight")
+        print("\nPlot saved to examples/plots/simple_example.png")
         plt.show()
     except Exception as e:
         print(f"\nNote: Plotting failed ({e}), but simulation completed successfully.")
