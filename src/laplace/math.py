@@ -95,14 +95,13 @@ def woodbury_identity(A_inv: Array, U: Array, C: Array, V: Array) -> Array:
     return A_inv - A_inv @ U @ inner_inv @ V @ A_inv
 
 
-def numerical_gradient(f: callable, x: Array, eps: float = 1e-7) -> Array:
+def gradient(f: callable, x: Array) -> Array:
     """
     Compute gradient using JAX automatic differentiation.
 
     Args:
         f: Scalar-valued function
         x: Point to evaluate gradient (JAX array)
-        eps: Unused (kept for API compatibility)
 
     Returns:
         Gradient vector
@@ -110,14 +109,13 @@ def numerical_gradient(f: callable, x: Array, eps: float = 1e-7) -> Array:
     return jax.grad(f)(x)
 
 
-def numerical_hessian(f: callable, x: Array, eps: float = 1e-5) -> Array:
+def hessian(f: callable, x: Array) -> Array:
     """
     Compute Hessian using JAX automatic differentiation.
 
     Args:
         f: Scalar-valued function
         x: Point to evaluate Hessian (JAX array)
-        eps: Unused (kept for API compatibility)
 
     Returns:
         Hessian matrix

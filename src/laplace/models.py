@@ -5,7 +5,7 @@ from typing import Callable
 import jax
 import jax.numpy as jnp
 
-from laplace.math import mahalanobis_squared, numerical_gradient, numerical_hessian
+from laplace.math import gradient, hessian, mahalanobis_squared
 from laplace.types import Array, MeasurementLogLik, NoiseSpec
 
 
@@ -155,16 +155,16 @@ class ObjectiveFunction:
         """Compute gradient ∂V/∂x."""
         # Prior gradient: P_inv (x - μ)
         prior_grad = self.P_inv_pred @ (x - self.mu_pred)
-        # Measurement gradient: numerical for now
-        meas_grad = numerical_gradient(self.nll, x)
+        # Measurement gradient: automatic differentiation
+        meas_grad = gradient(self.nll, x)
         return prior_grad + meas_grad
 
     def hessian(self, x: Array) -> Array:
         """Compute Hessian ∂²V/∂x²."""
         # Prior Hessian: P_inv
         prior_hess = self.P_inv_pred
-        # Measurement Hessian: numerical for now
-        meas_hess = numerical_hessian(self.nll, x)
+        # Measurement Hessian: automatic differentiation
+        meas_hess = hessian(self.nll, x)
         return prior_hess + meas_hess
 
 

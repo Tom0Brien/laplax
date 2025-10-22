@@ -6,10 +6,10 @@ import numpy as np  # For allclose, isclose compatibility
 from laplace.math import (
     cov_to_sqrt_inv,
     ensure_symmetric,
+    gradient,
+    hessian,
     is_positive_definite,
     mahalanobis_squared,
-    numerical_gradient,
-    numerical_hessian,
     regularize_covariance,
     sqrt_inv_to_cov,
 )
@@ -47,30 +47,30 @@ def test_mahalanobis_squared() -> None:
     assert np.isclose(dist, expected)
 
 
-def test_numerical_gradient() -> None:
-    """Test numerical gradient computation."""
+def test_gradient() -> None:
+    """Test gradient computation via automatic differentiation."""
 
     def f(x: jnp.ndarray) -> jnp.ndarray:
         return x[0] ** 2 + 2 * x[1] ** 2 + x[0] * x[1]
 
     x = jnp.array([1.0, 2.0])
-    grad = numerical_gradient(f, x)
+    grad_result = gradient(f, x)
     # ∂f/∂x0 = 2*x0 + x1 = 2*1 + 2 = 4
     # ∂f/∂x1 = 4*x1 + x0 = 4*2 + 1 = 9
-    assert np.allclose(grad, jnp.array([4.0, 9.0]), atol=1e-5)
+    assert np.allclose(grad_result, jnp.array([4.0, 9.0]), atol=1e-5)
 
 
-def test_numerical_hessian() -> None:
-    """Test numerical Hessian computation."""
+def test_hessian() -> None:
+    """Test Hessian computation via automatic differentiation."""
 
     def f(x: jnp.ndarray) -> jnp.ndarray:
         return x[0] ** 2 + 2 * x[1] ** 2 + x[0] * x[1]
 
     x = jnp.array([1.0, 2.0])
-    hess = numerical_hessian(f, x)
+    hess_result = hessian(f, x)
     # ∂²f/∂x0² = 2, ∂²f/∂x1² = 4, ∂²f/∂x0∂x1 = 1
     expected = jnp.array([[2.0, 1.0], [1.0, 4.0]])
-    assert np.allclose(hess, expected, atol=1e-4)
+    assert np.allclose(hess_result, expected, atol=1e-4)
 
 
 def test_is_positive_definite() -> None:
