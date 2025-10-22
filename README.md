@@ -4,6 +4,10 @@ A Python library for **Bayesian state estimation** using the Laplace filter and 
 
 **Built on JAX** for automatic differentiation, JIT compilation, and GPU/TPU support.
 
+![Laplax Showcase](examples/plots/laplax_showcase.png)
+
+*Laplace filter tracking a circular trajectory with nonlinear range-bearing measurements. Left: trajectory with 95% confidence ellipses. Center: position error and uncertainty over time. Right: measurements in polar coordinates.*
+
 ## Getting Started
 
 ### Prerequisites
