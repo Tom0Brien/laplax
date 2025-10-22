@@ -1,10 +1,6 @@
-Here you go—clean, concise, and ready to paste into `README.md`.
+# Laplax
 
----
-
-# Laplace
-
-A Python library (managed with [UV](https://github.com/astral-sh/uv)) for **Bayesian state estimation** using the Laplace filter and classical Kalman filtering variants (KF, EKF, UKF).
+A Python library for **Bayesian state estimation** using the Laplace filter and classical Kalman filtering variants (KF, EKF, UKF).
 
 **Built on JAX** for automatic differentiation, JIT compilation, and GPU/TPU support.
 
@@ -45,7 +41,7 @@ uv run ruff check --fix src tests && uv run ruff format src tests && uv run mypy
 ## Project Structure
 
 ```
-laplace/
+laplax/
 ├── src/
 │   └── laplace/
 │       ├── filter.py        # All filters: Laplace, KF, EKF, UKF
@@ -66,9 +62,9 @@ laplace/
 
 ---
 
-## Technical Reference (agent-friendly)
+## How It Works
 
-### Problem Setup
+### Laplace Filter Overview
 
 We estimate state (x_k) with process model (x_k = f_{k-1}(x_{k-1}, w_{k-1})) and measurement model (y_k \sim p(y_k \mid x_k)) (not necessarily Gaussian).
 
