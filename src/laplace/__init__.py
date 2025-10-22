@@ -1,6 +1,7 @@
 """Laplace filter for Bayesian state estimation with JAX acceleration."""
 
 from laplace.filter import LaplaceFilter, SquareRootLaplaceFilter
+from laplace.kalman import ExtendedKalmanFilter, KalmanFilter, UnscentedKalmanFilter
 from laplace.models import (
     AnalyticLinearization,
     GaussianMeasurementModel,
@@ -23,10 +24,17 @@ except ImportError:
 __version__ = "0.1.0"
 
 __all__ = [
+    # Laplace filters
     "LaplaceFilter",
     "SquareRootLaplaceFilter",
+    # Kalman filters
+    "KalmanFilter",
+    "ExtendedKalmanFilter",
+    "UnscentedKalmanFilter",
+    # Types
     "FilterState",
     "NoiseSpec",
+    # Models
     "LinearProcessModel",
     "NonlinearProcessModel",
     "GaussianMeasurementModel",
