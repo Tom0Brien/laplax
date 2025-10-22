@@ -1,5 +1,6 @@
-# Generated plots
+# Generated plots (except showcase)
 examples/plots/*.png
+!examples/plots/laplax_showcase.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
