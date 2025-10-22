@@ -66,27 +66,30 @@ laplax/
 
 ### Laplace Filter Overview
 
-We estimate state (x_k) with process model (x_k = f_{k-1}(x_{k-1}, w_{k-1})) and measurement model (y_k \sim p(y_k \mid x_k)) (not necessarily Gaussian).
+We estimate state $x_k$ with process model $x_k = f_{k-1}(x_{k-1}, w_{k-1})$ and measurement model $y_k \sim p(y_k \mid x_k)$ (not necessarily Gaussian).
 
-Maintain a **Gaussian prediction** (x_k \sim \mathcal N(\mu_{k|k-1}, P_{k|k-1})).
-Form the negative log-posterior
-[
-V(x_k) ;=; \tfrac{1}{2}|x_k-\mu_{k|k-1}|^2_{P_{k|k-1}^{-1}} ;-; \log p(y_k\mid x_k).
-]
+Maintain a **Gaussian prediction** $x_k \sim \mathcal{N}(\mu_{k|k-1}, P_{k|k-1})$.
+Form the negative log-posterior:
+
+$$
+V(x_k) = \tfrac{1}{2}|x_k-\mu_{k|k-1}|^2_{P_{k|k-1}^{-1}} - \log p(y_k\mid x_k)
+$$
+
 The **Laplace update** computes the MAP and local curvature:
-[
-\mu_{k|k} ;=; \arg\min_{x_k} V(x_k), \qquad
-P_{k|k} ;=; \left[\nabla^2 V(x_k)\right]^{-1}\Big|*{x_k=\mu*{k|k}}.
-]
 
-**Square-root form (numerically stable):** maintain (S) with (P^{-1}=SS^\top) and update ((\mu, S)) using a trust-region/BFGS step.
+$$
+\mu_{k|k} = \arg\min_{x_k} V(x_k), \qquad
+P_{k|k} = \left[\nabla^2 V(x_k)\right]^{-1}\Big|_{x_k=\mu_{k|k}}
+$$
+
+**Square-root form (numerically stable):** maintain $S$ with $P^{-1}=SS^\top$ and update $(\mu, S)$ using a trust-region/BFGS step.
 
 ### One-Step Filtering Recipe (time k)
 
-1. **Predict:** From ((\mu_{k-1|k-1}, P_{k-1|k-1})) and process model (f), produce ((\mu_{k|k-1}, P_{k|k-1})).
-2. **Update (Laplace):** Minimize (V) to get (\mu_{k|k}); invert Hessian at the mode to get (P_{k|k}).
+1. **Predict:** From $(\mu_{k-1|k-1}, P_{k-1|k-1})$ and process model $f$, produce $(\mu_{k|k-1}, P_{k|k-1})$.
+2. **Update (Laplace):** Minimize $V$ to get $\mu_{k|k}$; invert Hessian at the mode to get $P_{k|k}$.
 
-   * Square-root variant updates (S_{k|k-1}!\to!S_{k|k}) directly.
+   * Square-root variant updates $S_{k|k-1} \to S_{k|k}$ directly.
 
 ### Interfaces Expected by `laplax.filter.LaplaceFilter`
 
@@ -137,16 +140,16 @@ class SquareRootLaplaceFilter(LaplaceFilter):
 
 ### Optimization Notes (Update Step)
 
-* Objective: (V(x)=\tfrac12|x-\mu_{k|k-1}|^2_{P_{k|k-1}^{-1}} + \underbrace{\big(-\log p(y_k|x)\big)}_{\text{measurement NLL}}).
-* Gradient/Hessian combine the prior term ((P_{k|k-1}^{-1}(x-\mu_{k|k-1}))) and measurement derivatives.
-* At convergence, set (P_{k|k} = \big[\nabla^2 V(\mu_{k|k})\big]^{-1}).
-* Square-root variant updates (S) with a trust region for robustness.
+* Objective: $V(x)=\tfrac{1}{2}|x-\mu_{k|k-1}|^2_{P_{k|k-1}^{-1}} + \underbrace{(-\log p(y_k|x))}_{\text{measurement NLL}}$
+* Gradient/Hessian combine the prior term $P_{k|k-1}^{-1}(x-\mu_{k|k-1})$ and measurement derivatives.
+* At convergence, set $P_{k|k} = [\nabla^2 V(\mu_{k|k})]^{-1}$.
+* Square-root variant updates $S$ with a trust region for robustness.
 
 ### Likelihood Suggestions
 
-* **Euclidean measurements:** Gaussian (p(y|x)=\mathcal N(h(x), R)).
-* **Directional/spherical measurements:** von Mises–Fisher on (S^n).
-* Start with well-calibrated (R) (or concentration κ for vMF). Ensure (V) is locally convex near the solution.
+* **Euclidean measurements:** Gaussian $p(y|x)=\mathcal{N}(h(x), R)$
+* **Directional/spherical measurements:** von Mises–Fisher on $S^n$
+* Start with well-calibrated $R$ (or concentration $\kappa$ for vMF). Ensure $V$ is locally convex near the solution.
 
 ---
 
