@@ -9,8 +9,8 @@ Includes:
 - UnscentedKalmanFilter: Unscented transform for nonlinear systems
 """
 
-import numpy as np
-from numpy.linalg import inv
+import jax.numpy as jnp
+from jax.numpy.linalg import inv
 
 from laplace.math import cov_to_sqrt_inv, regularize_covariance, sqrt_inv_to_cov
 from laplace.models import LinearProcessModel, NonlinearProcessModel, ObjectiveFunction
@@ -77,7 +77,7 @@ class LaplaceFilter:
             P_pred = process.predict_cov(mean_prev, cov_prev)
         else:
             # Generic protocol: assume zero-mean noise
-            mu_pred = process(mean_prev, np.zeros_like(mean_prev))
+            mu_pred = process(mean_prev, jnp.zeros_like(mean_prev))
             # For generic process, use identity (no change in covariance)
             # This is a placeholder - user should provide proper linearization
             P_pred = cov_prev
@@ -348,7 +348,7 @@ class KalmanFilter:
 
         # Update equations
         mu_post = mu_pred + K @ innovation
-        P_post = (np.eye(len(mu_pred)) - K @ H) @ P_pred
+        P_post = (jnp.eye(len(mu_pred)) - K @ H) @ P_pred
 
         return FilterState(mean=mu_post, cov=P_post)
 
@@ -453,7 +453,7 @@ class ExtendedKalmanFilter:
 
         # Update equations
         mu_post = mu_pred + K @ innovation
-        P_post = (np.eye(len(mu_pred)) - K @ H) @ P_pred
+        P_post = (jnp.eye(len(mu_pred)) - K @ H) @ P_pred
 
         return FilterState(mean=mu_post, cov=P_post)
 
@@ -499,10 +499,10 @@ class UnscentedKalmanFilter:
         lambda_ = self.alpha**2 * (n + self.kappa) - n
 
         # Compute matrix square root
-        L = np.linalg.cholesky((n + lambda_) * cov)
+        L = jnp.linalg.cholesky((n + lambda_) * cov)
 
         # Generate sigma points
-        sigma_points = np.zeros((2 * n + 1, n))
+        sigma_points = jnp.zeros((2 * n + 1, n))
         sigma_points[0] = mean
 
         for i in range(n):
@@ -510,8 +510,8 @@ class UnscentedKalmanFilter:
             sigma_points[n + i + 1] = mean - L[:, i]
 
         # Compute weights
-        weights_mean = np.zeros(2 * n + 1)
-        weights_cov = np.zeros(2 * n + 1)
+        weights_mean = jnp.zeros(2 * n + 1)
+        weights_cov = jnp.zeros(2 * n + 1)
 
         weights_mean[0] = lambda_ / (n + lambda_)
         weights_cov[0] = lambda_ / (n + lambda_) + (1 - self.alpha**2 + self.beta)
@@ -547,19 +547,19 @@ class UnscentedKalmanFilter:
         # Transform sigma points
         n_points = sigma_points.shape[0]
         y_dim = len(f(sigma_points[0]))
-        transformed = np.zeros((n_points, y_dim))
+        transformed = jnp.zeros((n_points, y_dim))
 
         for i in range(n_points):
             transformed[i] = f(sigma_points[i])
 
         # Compute mean
-        mean = np.sum(weights_mean[:, np.newaxis] * transformed, axis=0)
+        mean = jnp.sum(weights_mean[:, jnp.newaxis] * transformed, axis=0)
 
         # Compute covariance
-        cov = np.zeros((y_dim, y_dim))
+        cov = jnp.zeros((y_dim, y_dim))
         for i in range(n_points):
             diff = transformed[i] - mean
-            cov += weights_cov[i] * np.outer(diff, diff)
+            cov += weights_cov[i] * jnp.outer(diff, diff)
 
         # Add noise covariance if provided
         if noise_cov is not None:
@@ -628,24 +628,24 @@ class UnscentedKalmanFilter:
         # Transform through measurement model
         n_points = sigma_points.shape[0]
         y_dim = len(h(sigma_points[0]))
-        meas_sigma = np.zeros((n_points, y_dim))
+        meas_sigma = jnp.zeros((n_points, y_dim))
 
         for i in range(n_points):
             meas_sigma[i] = h(sigma_points[i])
 
         # Predicted measurement mean and covariance
-        y_pred = np.sum(weights_mean[:, np.newaxis] * meas_sigma, axis=0)
+        y_pred = jnp.sum(weights_mean[:, jnp.newaxis] * meas_sigma, axis=0)
         S = R.copy()
         for i in range(n_points):
             diff = meas_sigma[i] - y_pred
-            S += weights_cov[i] * np.outer(diff, diff)
+            S += weights_cov[i] * jnp.outer(diff, diff)
 
         # Cross-covariance
-        Pxy = np.zeros((len(mu_pred), y_dim))
+        Pxy = jnp.zeros((len(mu_pred), y_dim))
         for i in range(n_points):
             dx = sigma_points[i] - mu_pred
             dy = meas_sigma[i] - y_pred
-            Pxy += weights_cov[i] * np.outer(dx, dy)
+            Pxy += weights_cov[i] * jnp.outer(dx, dy)
 
         # Kalman gain
         K = Pxy @ inv(S)

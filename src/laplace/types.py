@@ -1,14 +1,9 @@
 """Type definitions and protocols for Laplace filtering."""
 
 from dataclasses import dataclass
-from typing import Protocol, Union
+from typing import Protocol
 
-import jax.numpy as jnp
-import numpy as np
-from jax import Array as JaxArray
-
-# Accept both numpy and JAX arrays
-Array = Union[np.ndarray, JaxArray]
+from jax import Array
 
 
 class ProcessModel(Protocol):

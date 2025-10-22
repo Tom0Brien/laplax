@@ -1,9 +1,16 @@
 """Linear algebra helpers and numerical utilities for Laplace filtering."""
 
-import numpy as np
-from numpy.linalg import cholesky, inv, solve
+import jax.numpy as jnp
+from jax.numpy.linalg import cholesky, inv, solve
 
 from laplace.types import Array
+
+
+def _ensure_jax(x: Array) -> Array:
+    """Convert to JAX array if needed."""
+    if hasattr(x, '__array__'):  # numpy array
+        return jnp.array(x)
+    return x
 
 
 def ensure_symmetric(A: Array) -> Array:
@@ -32,7 +39,7 @@ def sqrt_inv_to_cov(S: Array) -> Array:
     # P^{-1} = S S^T, so P = (S^T)^{-1} S^{-1}
     # More stable: solve P S^T = S^{-T}, i.e., P = solve(S^T, solve(S, I))
     n = S.shape[0]
-    identity = np.eye(n)
+    identity = jnp.eye(n)
     S_inv = solve(S, identity)
     P = S_inv.T @ S_inv
     return ensure_symmetric(P)
@@ -52,7 +59,7 @@ def cov_to_sqrt_inv(P: Array) -> Array:
     # Thus S = L^{-T} (upper triangular)
     L = cholesky(P)  # P = L L^T
     n = L.shape[0]
-    L_inv = solve(L, np.eye(n))
+    L_inv = solve(L, jnp.eye(n))
     S = L_inv.T  # S = L^{-T}
     return S
 
@@ -106,14 +113,14 @@ def numerical_gradient(f: callable, x: Array, eps: float = 1e-7) -> Array:
     Returns:
         Gradient vector
     """
+    x = _ensure_jax(x)
     n = len(x)
-    grad = np.zeros(n)
+    grad = jnp.zeros(n)
     for i in range(n):
-        x_plus = x.copy()
-        x_minus = x.copy()
-        x_plus[i] += eps
-        x_minus[i] -= eps
-        grad[i] = (f(x_plus) - f(x_minus)) / (2 * eps)
+        x_plus = x.at[i].add(eps)
+        x_minus = x.at[i].add(-eps)
+        grad_i = (f(x_plus) - f(x_minus)) / (2 * eps)
+        grad = grad.at[i].set(grad_i)
     return grad
 
 
@@ -129,27 +136,21 @@ def numerical_hessian(f: callable, x: Array, eps: float = 1e-5) -> Array:
     Returns:
         Hessian matrix
     """
+    x = _ensure_jax(x)
     n = len(x)
-    H = np.zeros((n, n))
+    H = jnp.zeros((n, n))
 
     for i in range(n):
         for j in range(i, n):
-            x_pp = x.copy()
-            x_pm = x.copy()
-            x_mp = x.copy()
-            x_mm = x.copy()
+            x_pp = x.at[i].add(eps).at[j].add(eps)
+            x_pm = x.at[i].add(eps).at[j].add(-eps)
+            x_mp = x.at[i].add(-eps).at[j].add(eps)
+            x_mm = x.at[i].add(-eps).at[j].add(-eps)
 
-            x_pp[i] += eps
-            x_pp[j] += eps
-            x_pm[i] += eps
-            x_pm[j] -= eps
-            x_mp[i] -= eps
-            x_mp[j] += eps
-            x_mm[i] -= eps
-            x_mm[j] -= eps
-
-            H[i, j] = (f(x_pp) - f(x_pm) - f(x_mp) + f(x_mm)) / (4 * eps * eps)
-            H[j, i] = H[i, j]  # Symmetric
+            H_ij = (f(x_pp) - f(x_pm) - f(x_mp) + f(x_mm)) / (4 * eps * eps)
+            H = H.at[i, j].set(H_ij)
+            if i != j:
+                H = H.at[j, i].set(H_ij)
 
     return ensure_symmetric(H)
 
@@ -169,10 +170,10 @@ def is_positive_definite(A: Array, tol: float = 1e-10) -> bool:
         # Try Cholesky decomposition - fastest for PD matrices
         cholesky(A)
         return True
-    except np.linalg.LinAlgError:
-        # Fall back to eigenvalue check
-        eigvals = np.linalg.eigvalsh(ensure_symmetric(A))
-        return bool(np.all(eigvals > tol))
+    except (ValueError, Exception):
+        # Fall back to eigenvalue check (JAX may raise different exceptions)
+        eigvals = jnp.linalg.eigvalsh(ensure_symmetric(A))
+        return bool(jnp.all(eigvals > tol))
 
 
 def regularize_covariance(P: Array, min_eig: float = 1e-8) -> Array:
@@ -187,6 +188,6 @@ def regularize_covariance(P: Array, min_eig: float = 1e-8) -> Array:
         Regularized covariance matrix
     """
     P_sym = ensure_symmetric(P)
-    eigvals, eigvecs = np.linalg.eigh(P_sym)
-    eigvals = np.maximum(eigvals, min_eig)
-    return eigvecs @ np.diag(eigvals) @ eigvecs.T
+    eigvals, eigvecs = jnp.linalg.eigh(P_sym)
+    eigvals = jnp.maximum(eigvals, min_eig)
+    return eigvecs @ jnp.diag(eigvals) @ eigvecs.T

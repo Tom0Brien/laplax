@@ -2,7 +2,7 @@
 
 from typing import Callable
 
-import numpy as np
+import jax.numpy as jnp
 
 from laplace.math import mahalanobis_squared, numerical_gradient, numerical_hessian
 from laplace.types import Array, MeasurementLogLik, NoiseSpec
@@ -21,7 +21,7 @@ class LinearProcessModel:
         """
         self.F = F
         self.Q = Q
-        self.noise = NoiseSpec(mean=np.zeros(Q.shape[0]), cov=Q)
+        self.noise = NoiseSpec(mean=jnp.zeros(Q.shape[0]), cov=Q)
 
     def __call__(self, x_prev: Array, w: Array) -> Array:
         """Compute x_k = F x_{k-1} + w."""
@@ -56,7 +56,7 @@ class NonlinearProcessModel:
         self.f = f
         self.Q = Q
         self.F_func = F
-        self.noise = NoiseSpec(mean=np.zeros(Q.shape[0]), cov=Q)
+        self.noise = NoiseSpec(mean=jnp.zeros(Q.shape[0]), cov=Q)
 
     def __call__(self, x_prev: Array, w: Array) -> Array:
         """Compute x_k = f(x_{k-1}) + w."""
@@ -73,14 +73,13 @@ class NonlinearProcessModel:
         # Numerical Jacobian
         n = len(x)
         m = len(self.f(x))
-        J = np.zeros((m, n))
+        J = jnp.zeros((m, n))
         eps = 1e-7
         for i in range(n):
-            x_plus = x.copy()
-            x_minus = x.copy()
-            x_plus[i] += eps
-            x_minus[i] -= eps
-            J[:, i] = (self.f(x_plus) - self.f(x_minus)) / (2 * eps)
+            x_plus = x.at[i].add(eps)
+            x_minus = x.at[i].add(-eps)
+            J_col = (self.f(x_plus) - self.f(x_minus)) / (2 * eps)
+            J = J.at[:, i].set(J_col)
         return J
 
     def predict_cov(self, x_prev: Array, P_prev: Array) -> Array:
@@ -108,7 +107,7 @@ class GaussianMeasurementModel:
         """
         self.h = h
         self.R = R
-        self.R_inv = np.linalg.inv(R)
+        self.R_inv = jnp.linalg.inv(R)
         self.H_func = H
 
     def jacobian(self, x: Array) -> Array:
@@ -118,14 +117,13 @@ class GaussianMeasurementModel:
         # Numerical Jacobian
         n = len(x)
         m = len(self.h(x))
-        J = np.zeros((m, n))
+        J = jnp.zeros((m, n))
         eps = 1e-7
         for i in range(n):
-            x_plus = x.copy()
-            x_minus = x.copy()
-            x_plus[i] += eps
-            x_minus[i] -= eps
-            J[:, i] = (self.h(x_plus) - self.h(x_minus)) / (2 * eps)
+            x_plus = x.at[i].add(eps)
+            x_minus = x.at[i].add(-eps)
+            J_col = (self.h(x_plus) - self.h(x_minus)) / (2 * eps)
+            J = J.at[:, i].set(J_col)
         return J
 
     def nll(self, y: Array) -> MeasurementLogLik:

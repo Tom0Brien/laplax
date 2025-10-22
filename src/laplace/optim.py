@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 from typing import Callable
 
-import numpy as np
-from numpy.linalg import norm, solve
+import jax.numpy as jnp
+from jax.numpy.linalg import norm, solve
 
 from laplace.math import is_positive_definite, regularize_covariance
 from laplace.types import Array
@@ -85,15 +85,15 @@ def trust_region_step(grad: Array, hess: Array, delta: float) -> tuple[Array, bo
                 return p_newton, False
         else:
             # Hessian not PD, fall back to gradient descent direction
-            raise np.linalg.LinAlgError("Hessian not positive definite")
-    except np.linalg.LinAlgError:
+            raise ValueError("Hessian not positive definite")
+    except (ValueError, Exception):
         # Use steepest descent direction
         p_newton = None
 
     # Cauchy point (steepest descent)
     g_norm_sq = grad.T @ grad
     if g_norm_sq < 1e-14:
-        return np.zeros_like(grad), False
+        return jnp.zeros_like(grad), False
 
     try:
         curvature = grad.T @ hess @ grad
@@ -119,8 +119,8 @@ def trust_region_step(grad: Array, hess: Array, delta: float) -> tuple[Array, bo
 
         discriminant = b * b - 4 * a * c
         if discriminant >= 0 and a > 0:
-            tau_dl = (-b + np.sqrt(discriminant)) / (2 * a)
-            tau_dl = np.clip(tau_dl, 0, 1)
+            tau_dl = (-b + jnp.sqrt(discriminant)) / (2 * a)
+            tau_dl = jnp.clip(tau_dl, 0, 1)
             return p_cauchy + tau_dl * p_diff, True
 
     return p_cauchy, True
@@ -256,7 +256,7 @@ def minimize_bfgs(
     """
     n = len(x0)
     x = x0.copy()
-    H = np.eye(n)  # Inverse Hessian approximation
+    H = jnp.eye(n)  # Inverse Hessian approximation
     f_val = f(x)
     grad = grad_f(x)
 
@@ -275,7 +275,7 @@ def minimize_bfgs(
         # Ensure descent direction
         if grad.T @ direction >= 0:
             direction = -grad
-            H = np.eye(n)
+            H = jnp.eye(n)
 
         # Line search
         alpha = line_search_backtracking(f, x, direction, grad)
@@ -299,10 +299,10 @@ def minimize_bfgs(
         rho = 1.0 / (y.T @ s + 1e-14)
 
         if rho > 0:  # Curvature condition satisfied
-            identity = np.eye(n)
-            H = (identity - rho * np.outer(s, y)) @ H @ (
-                identity - rho * np.outer(y, s)
-            ) + rho * np.outer(s, s)
+            identity = jnp.eye(n)
+            H = (identity - rho * jnp.outer(s, y)) @ H @ (
+                identity - rho * jnp.outer(y, s)
+            ) + rho * jnp.outer(s, s)
 
         x = x_new
         grad = grad_new
