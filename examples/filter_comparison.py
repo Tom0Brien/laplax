@@ -16,19 +16,19 @@ import jax
 import jax.numpy as jnp
 from matplotlib import pyplot as plt
 
-from laplace.filter import (
+from laplax.filter import (
     ExtendedKalmanFilter,
     KalmanFilter,
     LaplaceFilter,
     UnscentedKalmanFilter,
 )
-from laplace.models import (
+from laplax.models import (
     AnalyticLinearization,
     GaussianMeasurementModel,
     LinearProcessModel,
     ObjectiveFunction,
 )
-from laplace.types import FilterState
+from laplax.types import FilterState
 
 
 def run_comparison():
@@ -139,7 +139,7 @@ def run_comparison():
 
             elif name == "Laplace":
                 # Laplace: MAP estimation
-                mu_pred, P_pred = laplace.predict(x_est, P_est, process_model)
+                mu_pred, P_pred = laplax.predict(x_est, P_est, process_model)
 
                 # Use analytic linearization
                 meas_model = GaussianMeasurementModel(h, R, H=H_jacobian)
@@ -148,7 +148,7 @@ def run_comparison():
                 obj = ObjectiveFunction(mu_pred, P_inv_pred, nll)
                 lin = AnalyticLinearization(obj, meas_model, y)
 
-                state = laplace.update(mu_pred, P_pred, nll, lin=lin)
+                state = laplax.update(mu_pred, P_pred, nll, lin=lin)
 
             elapsed = time.time() - start
             times[name].append(elapsed)

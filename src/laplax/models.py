@@ -5,8 +5,8 @@ from typing import Callable
 import jax
 import jax.numpy as jnp
 
-from laplace.math import gradient, hessian, mahalanobis_squared
-from laplace.types import Array, MeasurementLogLik, NoiseSpec
+from laplax.math import gradient, hessian, mahalanobis_squared
+from laplax.types import Array, MeasurementLogLik, NoiseSpec
 
 
 class LinearProcessModel:

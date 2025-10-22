@@ -1,20 +1,20 @@
 """Laplace: Bayesian state estimation with JAX."""
 
-from laplace.filter import (
+from laplax.filter import (
     ExtendedKalmanFilter,
     KalmanFilter,
     LaplaceFilter,
     SquareRootLaplaceFilter,
     UnscentedKalmanFilter,
 )
-from laplace.models import (
+from laplax.models import (
     AnalyticLinearization,
     GaussianMeasurementModel,
     LinearProcessModel,
     NonlinearProcessModel,
     ObjectiveFunction,
 )
-from laplace.types import FilterState, NoiseSpec
+from laplax.types import FilterState, NoiseSpec
 
 __version__ = "0.1.0"
 

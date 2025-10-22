@@ -8,8 +8,8 @@ import jax
 import jax.numpy as jnp
 from matplotlib import pyplot as plt
 
-from laplace.filter import LaplaceFilter
-from laplace.models import GaussianMeasurementModel, LinearProcessModel
+from laplax.filter import LaplaceFilter
+from laplax.models import GaussianMeasurementModel, LinearProcessModel
 
 
 def run_simple_example() -> None:

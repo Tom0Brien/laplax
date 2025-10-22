@@ -9,8 +9,8 @@ import jax
 import jax.numpy as jnp
 from matplotlib import pyplot as plt
 
-from laplace.filter import LaplaceFilter
-from laplace.models import (
+from laplax.filter import LaplaceFilter
+from laplax.models import (
     AnalyticLinearization,
     GaussianMeasurementModel,
     LinearProcessModel,
@@ -94,7 +94,7 @@ def run_tracking_example() -> None:
         nll = meas_model.nll(y)
         obj_for_lin = None
         # Create objective for linearization
-        from laplace.models import ObjectiveFunction
+        from laplax.models import ObjectiveFunction
 
         P_inv_pred = jnp.linalg.inv(P_pred)
         obj_for_lin = ObjectiveFunction(x_pred, P_inv_pred, nll)

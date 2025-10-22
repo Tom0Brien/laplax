@@ -3,7 +3,7 @@
 import jax.numpy as jnp
 import numpy as np  # For allclose compatibility
 
-from laplace.models import (
+from laplax.models import (
     AnalyticLinearization,
     GaussianMeasurementModel,
     LinearProcessModel,

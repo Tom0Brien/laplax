@@ -10,8 +10,8 @@ import jax.numpy as jnp
 from jax import random
 
 # The entire library now uses JAX by default
-from laplace.filter import LaplaceFilter
-from laplace.models import (
+from laplax.filter import LaplaceFilter
+from laplax.models import (
     AnalyticLinearization,
     GaussianMeasurementModel,
     LinearProcessModel,

@@ -12,10 +12,10 @@ Includes:
 import jax.numpy as jnp
 from jax.numpy.linalg import inv
 
-from laplace.math import cov_to_sqrt_inv, regularize_covariance, sqrt_inv_to_cov
-from laplace.models import LinearProcessModel, NonlinearProcessModel, ObjectiveFunction
-from laplace.optim import minimize_bfgs, minimize_trust_region
-from laplace.types import (
+from laplax.math import cov_to_sqrt_inv, regularize_covariance, sqrt_inv_to_cov
+from laplax.models import LinearProcessModel, NonlinearProcessModel, ObjectiveFunction
+from laplax.optim import minimize_bfgs, minimize_trust_region
+from laplax.types import (
     Array,
     FilterState,
     Linearization,

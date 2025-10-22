@@ -3,7 +3,7 @@
 import jax.numpy as jnp
 import numpy as np  # For allclose, isclose compatibility
 
-from laplace.math import (
+from laplax.math import (
     cov_to_sqrt_inv,
     ensure_symmetric,
     gradient,

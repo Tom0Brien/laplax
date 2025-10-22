@@ -4,7 +4,7 @@ import jax
 import jax.numpy as jnp
 from jax.numpy.linalg import cholesky, inv, solve
 
-from laplace.types import Array
+from laplax.types import Array
 
 
 def ensure_symmetric(A: Array) -> Array:

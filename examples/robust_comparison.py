@@ -16,14 +16,14 @@ import jax
 import jax.numpy as jnp
 from matplotlib import pyplot as plt
 
-from laplace.filter import (
+from laplax.filter import (
     ExtendedKalmanFilter,
     KalmanFilter,
     LaplaceFilter,
     UnscentedKalmanFilter,
 )
-from laplace.models import LinearProcessModel
-from laplace.types import FilterState
+from laplax.models import LinearProcessModel
+from laplax.types import FilterState
 
 
 def student_t_nll(y, h_func, R, nu=3.0):

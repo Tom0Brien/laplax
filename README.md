@@ -88,7 +88,7 @@ P_{k|k} ;=; \left[\nabla^2 V(x_k)\right]^{-1}\Big|*{x_k=\mu*{k|k}}.
 
    * Square-root variant updates (S_{k|k-1}!\to!S_{k|k}) directly.
 
-### Interfaces Expected by `laplace.filter.LaplaceFilter`
+### Interfaces Expected by `laplax.filter.LaplaceFilter`
 
 ```python
 # src/laplace/types.py
@@ -154,8 +154,8 @@ class SquareRootLaplaceFilter(LaplaceFilter):
 
 ```python
 import jax.numpy as jnp
-from laplace.filter import LaplaceFilter
-from laplace.models import LinearProcessModel, GaussianMeasurementModel
+from laplax.filter import LaplaceFilter
+from laplax.models import LinearProcessModel, GaussianMeasurementModel
 
 # Process model: x_k = F x_{k-1} + w
 F = jnp.array([[1.0, 1.0], [0.0, 1.0]])  # Constant velocity

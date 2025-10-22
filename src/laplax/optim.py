@@ -6,8 +6,8 @@ from typing import Callable
 import jax.numpy as jnp
 from jax.numpy.linalg import norm, solve
 
-from laplace.math import is_positive_definite, regularize_covariance
-from laplace.types import Array
+from laplax.math import is_positive_definite, regularize_covariance
+from laplax.types import Array
 
 
 @dataclass

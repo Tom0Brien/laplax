@@ -3,8 +3,8 @@
 import jax.numpy as jnp
 import numpy as np  # For allclose compatibility
 
-from laplace.filter import LaplaceFilter, SquareRootLaplaceFilter
-from laplace.models import GaussianMeasurementModel, LinearProcessModel
+from laplax.filter import LaplaceFilter, SquareRootLaplaceFilter
+from laplax.models import GaussianMeasurementModel, LinearProcessModel
 
 
 def test_laplace_filter_linear_gaussian() -> None:
@@ -62,7 +62,7 @@ def test_laplace_filter_filter_step() -> None:
     meas_model = GaussianMeasurementModel(h, R)
 
     # Initial state
-    from laplace.types import FilterState
+    from laplax.types import FilterState
 
     state = FilterState(mean=jnp.array([0.0]), cov=jnp.array([[1.0]]))
 
@@ -98,7 +98,7 @@ def test_square_root_filter() -> None:
     P = jnp.eye(2) * 0.5
 
     # Square-root information
-    from laplace.math import cov_to_sqrt_inv
+    from laplax.math import cov_to_sqrt_inv
 
     S = cov_to_sqrt_inv(P)
 
@@ -112,7 +112,7 @@ def test_square_root_filter() -> None:
     assert P_pred.shape == (2, 2)
 
     # Check consistency
-    from laplace.math import sqrt_inv_to_cov
+    from laplax.math import sqrt_inv_to_cov
 
     P_from_S = sqrt_inv_to_cov(S_pred)
     assert np.allclose(P_pred, P_from_S)
