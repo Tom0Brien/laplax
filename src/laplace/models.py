@@ -2,6 +2,7 @@
 
 from typing import Callable
 
+import jax
 import jax.numpy as jnp
 
 from laplace.math import mahalanobis_squared, numerical_gradient, numerical_hessian
@@ -67,20 +68,11 @@ class NonlinearProcessModel:
         return self.f(x_prev)
 
     def jacobian(self, x: Array) -> Array:
-        """Compute Jacobian F = ∂f/∂x at x."""
+        """Compute Jacobian F = ∂f/∂x at x using JAX autodiff."""
         if self.F_func is not None:
             return self.F_func(x)
-        # Numerical Jacobian
-        n = len(x)
-        m = len(self.f(x))
-        J = jnp.zeros((m, n))
-        eps = 1e-7
-        for i in range(n):
-            x_plus = x.at[i].add(eps)
-            x_minus = x.at[i].add(-eps)
-            J_col = (self.f(x_plus) - self.f(x_minus)) / (2 * eps)
-            J = J.at[:, i].set(J_col)
-        return J
+        # Use JAX automatic differentiation
+        return jax.jacfwd(self.f)(x)
 
     def predict_cov(self, x_prev: Array, P_prev: Array) -> Array:
         """Predict covariance using linearization: P_{k|k-1} ≈ F P_{k-1|k-1} F^T + Q."""
@@ -111,20 +103,11 @@ class GaussianMeasurementModel:
         self.H_func = H
 
     def jacobian(self, x: Array) -> Array:
-        """Compute Jacobian H = ∂h/∂x at x."""
+        """Compute Jacobian H = ∂h/∂x at x using JAX autodiff."""
         if self.H_func is not None:
             return self.H_func(x)
-        # Numerical Jacobian
-        n = len(x)
-        m = len(self.h(x))
-        J = jnp.zeros((m, n))
-        eps = 1e-7
-        for i in range(n):
-            x_plus = x.at[i].add(eps)
-            x_minus = x.at[i].add(-eps)
-            J_col = (self.h(x_plus) - self.h(x_minus)) / (2 * eps)
-            J = J.at[:, i].set(J_col)
-        return J
+        # Use JAX automatic differentiation
+        return jax.jacfwd(self.h)(x)
 
     def nll(self, y: Array) -> MeasurementLogLik:
         """
@@ -134,9 +117,10 @@ class GaussianMeasurementModel:
             Function that computes -log p(y | x)
         """
 
-        def _nll(x: Array) -> float:
+        def _nll(x: Array) -> Array:
             residual = y - self.h(x)
-            return 0.5 * float(residual.T @ self.R_inv @ residual)
+            # Return JAX scalar (0-d array)
+            return 0.5 * (residual.T @ self.R_inv @ residual)
 
         return _nll
 

@@ -4,7 +4,8 @@ Simple example: 1D scalar tracking.
 Demonstrates basic usage of the Laplace filter for a simple 1D problem.
 """
 
-import numpy as np
+import jax
+import jax.numpy as jnp
 from matplotlib import pyplot as plt
 
 from laplace.filter import LaplaceFilter
@@ -17,51 +18,57 @@ def run_simple_example() -> None:
     print("Simple 1D Tracking Example")
     print("=" * 60)
 
+    # JAX random key
+    key = jax.random.PRNGKey(42)
+
     # Process model: constant velocity in 1D
     # State: [position, velocity]
-    F = np.array([[1.0, 1.0], [0.0, 1.0]])  # x_k = F x_{k-1} + w
-    Q = np.eye(2) * 0.01  # Process noise covariance
+    F = jnp.array([[1.0, 1.0], [0.0, 1.0]])  # x_k = F x_{k-1} + w
+    Q = jnp.eye(2) * 0.01  # Process noise covariance
 
     process = LinearProcessModel(F, Q)
 
     # Measurement model: observe position with Gaussian noise
-    def h(x: np.ndarray) -> np.ndarray:
-        return np.array([x[0]])  # Measure position only
+    def h(x):
+        return jnp.array([x[0]])  # Measure position only
 
-    R = np.array([[0.1]])  # Measurement noise covariance
+    R = jnp.array([[0.1]])  # Measurement noise covariance
     meas_model = GaussianMeasurementModel(h, R)
 
     # Initial state estimate
-    x_est = np.array([0.0, 1.0])  # Position 0, velocity 1
-    P_est = np.eye(2) * 0.5
+    x_est = jnp.array([0.0, 1.0])  # Position 0, velocity 1
+    P_est = jnp.eye(2) * 0.5
 
     # Create filter
     filt = LaplaceFilter(optimizer="trust_region", max_iter=50)
 
     # Simulate true trajectory
-    x_true = np.array([0.0, 1.0])
+    x_true = jnp.array([0.0, 1.0])
     n_steps = 20
 
     # Storage for plotting
     x_true_history = [x_true.copy()]
     x_est_history = [x_est.copy()]
     measurements = []
-    uncertainties = [np.sqrt(P_est[0, 0])]
+    uncertainties = [jnp.sqrt(P_est[0, 0])]
 
     print(f"\nSimulating {n_steps} time steps...")
     print(f"{'Step':>4} {'True Pos':>10} {'Est Pos':>10} {'Error':>10}")
     print("-" * 40)
 
     for k in range(n_steps):
+        # Split key for each random operation
+        key, subkey1, subkey2 = jax.random.split(key, 3)
+
         # Simulate true state evolution
-        w = np.random.randn(2) * np.sqrt(0.01)
+        w = jax.random.normal(subkey1, (2,)) * jnp.sqrt(0.01)
         x_true = process(x_true, w)
 
         # Prediction step
         x_pred, P_pred = filt.predict(x_est, P_est, process)
 
         # Simulate measurement
-        v = np.random.randn(1) * np.sqrt(R[0, 0])
+        v = jax.random.normal(subkey2, (1,)) * jnp.sqrt(R[0, 0])
         y = h(x_true) + v
         measurements.append(y[0])
 
@@ -75,28 +82,28 @@ def run_simple_example() -> None:
         # Store for plotting
         x_true_history.append(x_true.copy())
         x_est_history.append(x_est.copy())
-        uncertainties.append(np.sqrt(P_est[0, 0]))
+        uncertainties.append(jnp.sqrt(P_est[0, 0]))
 
         # Print results
         error = abs(x_est[0] - x_true[0])
         print(f"{k + 1:4d} {x_true[0]:10.3f} {x_est[0]:10.3f} {error:10.3f}")
 
     # Convert to arrays for plotting
-    x_true_history = np.array(x_true_history)
-    x_est_history = np.array(x_est_history)
-    measurements = np.array(measurements)
-    uncertainties = np.array(uncertainties)
-    time_steps = np.arange(len(x_true_history))
+    x_true_history = jnp.array(x_true_history)
+    x_est_history = jnp.array(x_est_history)
+    measurements = jnp.array(measurements)
+    uncertainties = jnp.array(uncertainties)
+    time_steps = jnp.arange(len(x_true_history))
 
     # Compute statistics
-    pos_errors = np.abs(x_est_history[:, 0] - x_true_history[:, 0])
+    pos_errors = jnp.abs(x_est_history[:, 0] - x_true_history[:, 0])
 
     print("\n" + "=" * 60)
     print(f"Final position estimate: {x_est[0]:.3f}")
     print(f"Final velocity estimate: {x_est[1]:.3f}")
-    print(f"Final position uncertainty: {np.sqrt(P_est[0, 0]):.3f}")
-    print(f"\nMean position error: {np.mean(pos_errors):.3f}")
-    print(f"RMS position error: {np.sqrt(np.mean(pos_errors**2)):.3f}")
+    print(f"Final position uncertainty: {jnp.sqrt(P_est[0, 0]):.3f}")
+    print(f"\nMean position error: {jnp.mean(pos_errors):.3f}")
+    print(f"RMS position error: {jnp.sqrt(jnp.mean(pos_errors**2)):.3f}")
     print("=" * 60)
 
     # Plotting
@@ -143,7 +150,7 @@ def run_simple_example() -> None:
         ax = axes[1, 0]
         ax.plot(time_steps, pos_errors, "b-", linewidth=2)
         ax.axhline(
-            np.mean(pos_errors), color="r", linestyle="--", label="Mean", linewidth=1.5
+            jnp.mean(pos_errors), color="r", linestyle="--", label="Mean", linewidth=1.5
         )
         ax.set_xlabel("Time Step")
         ax.set_ylabel("Position Error")
@@ -170,5 +177,5 @@ def run_simple_example() -> None:
 
 
 if __name__ == "__main__":
-    np.random.seed(42)
     run_simple_example()
+

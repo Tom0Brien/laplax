@@ -9,9 +9,9 @@ import time
 import jax.numpy as jnp
 from jax import random
 
-# Use the original filter with JAX-enabled models
+# The entire library now uses JAX by default
 from laplace.filter import LaplaceFilter
-from laplace.models_jax import (
+from laplace.models import (
     AnalyticLinearization,
     GaussianMeasurementModel,
     LinearProcessModel,
@@ -32,7 +32,7 @@ def run_jax_example() -> None:
     process = LinearProcessModel(F, Q)
 
     # Measurement model: nonlinear (position squared)
-    def h(x: jnp.ndarray) -> jnp.ndarray:
+    def h(x):
         """Nonlinear measurement: observe position squared."""
         return jnp.array([x[0] ** 2])  # y = x^2
 
@@ -136,3 +136,4 @@ def run_jax_example() -> None:
 
 if __name__ == "__main__":
     run_jax_example()
+

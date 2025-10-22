@@ -12,7 +12,8 @@ Tests on 2D tracking with nonlinear (range-bearing) measurements.
 
 import time
 
-import numpy as np
+import jax
+import jax.numpy as jnp
 from matplotlib import pyplot as plt
 
 from laplace.filter import (
@@ -37,43 +38,44 @@ def run_comparison():
     print("=" * 80)
 
     # Simulation parameters
-    np.random.seed(42)
+    key = jax.random.PRNGKey(42)
     dt = 0.1
     n_steps = 50
 
     # Process model: constant velocity in 2D
     # State: [x, vx, y, vy]
-    F = np.array([[1, dt, 0, 0], [0, 1, 0, 0], [0, 0, 1, dt], [0, 0, 0, 1]])
-    Q = np.eye(4) * 0.01
+    F = jnp.array([[1, dt, 0, 0], [0, 1, 0, 0], [0, 0, 1, dt], [0, 0, 0, 1]])
+    Q = jnp.eye(4) * 0.01
     process_model = LinearProcessModel(F, Q)
 
     # Nonlinear measurement model: range and bearing from origin
     def h(x):
         """Compute range and bearing."""
         pos = x[[0, 2]]
-        r = np.sqrt(pos[0] ** 2 + pos[1] ** 2) + 1e-8
-        theta = np.arctan2(pos[1], pos[0])
-        return np.array([r, theta])
+        r = jnp.sqrt(pos[0] ** 2 + pos[1] ** 2) + 1e-8
+        theta = jnp.arctan2(pos[1], pos[0])
+        return jnp.array([r, theta])
 
     def H_jacobian(x):
         """Measurement Jacobian."""
         px, py = x[0], x[2]
-        r = np.sqrt(px**2 + py**2) + 1e-8
-        H = np.zeros((2, 4))
+        r = jnp.sqrt(px**2 + py**2) + 1e-8
+        H = jnp.zeros((2, 4))
         H[0, 0] = px / r
         H[0, 2] = py / r
         H[1, 0] = -py / (r**2)
         H[1, 2] = px / (r**2)
         return H
 
-    R = np.diag([0.1, 0.05])  # Range and bearing noise
+    R = jnp.diag(jnp.array([0.1, 0.05]))  # Range and bearing noise
 
     # True initial state
-    x_true = np.array([0.0, 1.0, 0.0, 0.5])
+    x_true = jnp.array([0.0, 1.0, 0.0, 0.5])
 
     # Initialize filters with same initial conditions
-    x_init = x_true + np.random.randn(4) * 0.5
-    P_init = np.eye(4) * 1.0
+    key, subkey = jax.random.split(key)
+    x_init = x_true + jax.random.normal(subkey, (4,)) * 0.5
+    P_init = jnp.eye(4) * 1.0
 
     # Create filters
     kf = KalmanFilter()
@@ -93,13 +95,16 @@ def run_comparison():
 
     # Run simulation
     for k in range(n_steps):
+        # Split key for each random operation
+        key, subkey1, subkey2 = jax.random.split(key, 3)
+
         # Simulate true state
-        w = np.random.randn(4) * np.sqrt(0.01)
+        w = jax.random.normal(subkey1, (4,)) * jnp.sqrt(0.01)
         x_true = F @ x_true + w
         x_true_history.append(x_true.copy())
 
         # Simulate measurement
-        v = np.random.randn(2) * np.sqrt(np.diag(R))
+        v = jax.random.normal(subkey2, (2,)) * jnp.sqrt(jnp.diag(R))
         y = h(x_true) + v
 
         # Run each filter
@@ -139,7 +144,7 @@ def run_comparison():
                 # Use analytic linearization
                 meas_model = GaussianMeasurementModel(h, R, H=H_jacobian)
                 nll = meas_model.nll(y)
-                P_inv_pred = np.linalg.inv(P_pred)
+                P_inv_pred = jnp.linalg.inv(P_pred)
                 obj = ObjectiveFunction(mu_pred, P_inv_pred, nll)
                 lin = AnalyticLinearization(obj, meas_model, y)
 
@@ -155,14 +160,14 @@ def run_comparison():
             print(f"Step {k + 1:3d}/{n_steps} completed")
 
     # Convert to arrays
-    x_true_history = np.array(x_true_history)
+    x_true_history = jnp.array(x_true_history)
     for name in filters:
-        estimates[name] = np.array(estimates[name])
+        estimates[name] = jnp.array(estimates[name])
 
     # Compute errors
     errors = {}
     for name in filters:
-        pos_errors = np.linalg.norm(
+        pos_errors = jnp.linalg.norm(
             estimates[name][:, [0, 2]] - x_true_history[:, [0, 2]], axis=1
         )
         errors[name] = pos_errors
@@ -177,10 +182,10 @@ def run_comparison():
     print("-" * 80)
 
     for name in ["KF", "EKF", "UKF", "Laplace"]:
-        mean_err = np.mean(errors[name])
-        rms_err = np.sqrt(np.mean(errors[name] ** 2))
+        mean_err = jnp.mean(errors[name])
+        rms_err = jnp.sqrt(jnp.mean(errors[name] ** 2))
         final_err = errors[name][-1]
-        avg_time = np.mean(times[name]) * 1000
+        avg_time = jnp.mean(times[name]) * 1000
 
         print(
             f"{name:<12} {mean_err:>12.3f} {rms_err:>12.3f} {final_err:>12.3f} {avg_time:>15.2f}"
@@ -226,7 +231,7 @@ def run_comparison():
 
     # Position errors over time
     ax2 = plt.subplot(2, 3, 2)
-    time_steps = np.arange(n_steps + 1)
+    time_steps = jnp.arange(n_steps + 1)
     for name in ["KF", "EKF", "UKF", "Laplace"]:
         ax2.plot(
             time_steps,
@@ -297,7 +302,7 @@ def run_comparison():
     # Computation time comparison
     ax6 = plt.subplot(2, 3, 6)
     avg_times = [
-        np.mean(times[name]) * 1000 for name in ["KF", "EKF", "UKF", "Laplace"]
+        jnp.mean(times[name]) * 1000 for name in ["KF", "EKF", "UKF", "Laplace"]
     ]
     ax6.bar(
         ["KF", "EKF", "UKF", "Laplace"],
@@ -324,10 +329,11 @@ def run_comparison():
     print("• EKF better but still relies on first-order Taylor approximation")
     print("• UKF captures nonlinearity better (no Jacobians needed!)")
     print("• Laplace uses optimization for MAP, can handle non-Gaussian cases")
-    print(f"• Best accuracy: {min(filters, key=lambda n: np.mean(errors[n]))}")
-    print(f"• Fastest: {min(filters, key=lambda n: np.mean(times[n]))}")
+    print(f"• Best accuracy: {min(filters, key=lambda n: jnp.mean(errors[n]))}")
+    print(f"• Fastest: {min(filters, key=lambda n: jnp.mean(times[n]))}")
     print("=" * 80)
 
 
 if __name__ == "__main__":
     run_comparison()
+

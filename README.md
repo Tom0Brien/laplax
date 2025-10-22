@@ -4,20 +4,23 @@ Here you go—clean, concise, and ready to paste into `README.md`.
 
 # Laplace
 
-A Python project (managed with [UV](https://github.com/astral-sh/uv)) for experimenting with the **Laplace (Laplace-approximation) filter** for Bayesian state estimation.
+A Python library (managed with [UV](https://github.com/astral-sh/uv)) for **Bayesian state estimation** using the Laplace filter and classical Kalman filtering variants (KF, EKF, UKF).
+
+**Built on JAX** for automatic differentiation, JIT compilation, and GPU/TPU support.
 
 ## Getting Started
 
 ### Prerequisites
 
-* Python 3.8+
+* Python 3.11+
 * UV installed
+* **JAX** (automatically installed with dependencies)
 
 ### Install
 
 ```bash
 pip install uv
-uv sync                 # install runtime deps
+uv sync                 # install runtime deps (including JAX)
 uv sync --extra dev     # install dev deps (ruff, mypy, pytest, etc.)
 ```
 
@@ -45,12 +48,17 @@ uv run ruff check --fix src tests && uv run ruff format src tests && uv run mypy
 laplace/
 ├── src/
 │   └── laplace/
-│       ├── filter.py        # LaplaceFilter + SquareRootLaplaceFilter
-│       ├── models.py        # f_k(·), h_k(·) interfaces + noise types
-│       ├── math.py          # linear algebra helpers, Hessian ops
-│       ├── optim.py         # trust-region / BFGS routines
-│       └── types.py         # Protocols / dataclasses for state & covariances
+│       ├── filter.py        # All filters: Laplace, KF, EKF, UKF
+│       ├── models.py        # Process & measurement models (JAX-based)
+│       ├── math.py          # Linear algebra helpers (JAX autodiff)
+│       ├── optim.py         # Trust-region / BFGS optimizers
+│       └── types.py         # Protocols / dataclasses
 ├── tests/                   # Unit tests
+├── examples/                # Usage examples
+│   ├── simple_example.py    # Basic 1D tracking
+│   ├── tracking_example.py  # 2D nonlinear tracking
+│   ├── filter_comparison.py # Compare KF/EKF/UKF/Laplace
+│   └── robust_comparison.py # Outlier robustness test
 ├── pyproject.toml
 ├── .python-version
 └── README.md
@@ -89,16 +97,14 @@ P_{k|k} ;=; \left[\nabla^2 V(x_k)\right]^{-1}\Big|*{x_k=\mu*{k|k}}.
 ```python
 # src/laplace/types.py
 from typing import Protocol
-import numpy as np
-
-Array = np.ndarray
+from jax import Array  # JAX arrays for autodiff
 
 class ProcessModel(Protocol):
     def __call__(self, x_prev: Array, w: Array) -> Array: ...
 
 class MeasurementLogLik(Protocol):
-    def __call__(self, x: Array) -> float:
-        """Return -log p(y_k | x)."""
+    def __call__(self, x: Array) -> Array:
+        """Return -log p(y_k | x) (JAX scalar)."""
 
 class Linearization(Protocol):
     def hessian(self, x: Array) -> Array: ...
@@ -108,8 +114,7 @@ class Linearization(Protocol):
 ```python
 # src/laplace/filter.py
 from dataclasses import dataclass
-import numpy as np
-Array = np.ndarray
+from jax import Array
 
 @dataclass
 class FilterState:
@@ -152,29 +157,56 @@ class SquareRootLaplaceFilter(LaplaceFilter):
 ## Quick Example
 
 ```python
-import numpy as np
+import jax.numpy as jnp
 from laplace.filter import LaplaceFilter
+from laplace.models import LinearProcessModel, GaussianMeasurementModel
 
-def nll_gaussian(y, h, R_inv):
-    def _call(x):
-        r = y - h(x)
-        return 0.5 * r.T @ R_inv @ r  # -log p(y|x) up to a constant
-    return _call
+# Process model: x_k = F x_{k-1} + w
+F = jnp.array([[1.0, 1.0], [0.0, 1.0]])  # Constant velocity
+Q = jnp.eye(2) * 0.01
+process = LinearProcessModel(F, Q)
 
-# Given: mu_prev, P_prev, process_model, measurement function h, y, and R_inv
+# Measurement model: y = h(x) + v
+def h(x):
+    return jnp.array([x[0]])  # Observe position only
+
+R = jnp.array([[0.1]])
+meas_model = GaussianMeasurementModel(h, R)
+
+# Filter
 filt = LaplaceFilter()
-mu_pred, P_pred = filt.predict(mu_prev, P_prev, process_model)
-state = filt.update(mu_pred, P_pred, nll_gaussian(y, h, R_inv))
+mu_pred, P_pred = filt.predict(mu_prev, P_prev, process)
 
-print(state.mean, state.cov)
+# Update with measurement y
+y = jnp.array([1.0])
+nll = meas_model.nll(y)
+state = filt.update(mu_pred, P_pred, nll)
+
+print("Estimate:", state.mean)
+print("Covariance:", state.cov)
+```
+
+Run examples:
+```bash
+uv run python examples/simple_example.py
+uv run python examples/filter_comparison.py
 ```
 
 ---
 
+## Key Features
+
+* **JAX-Powered**: Automatic differentiation for Jacobians and Hessians—no manual derivatives!
+* **Multiple Filters**: Laplace, KF, EKF, UKF all in one library
+* **Robust Estimation**: Support for non-Gaussian likelihoods (e.g., Student-t for outliers)
+* **Numerically Stable**: Square-root information forms available
+* **GPU/TPU Ready**: JAX enables hardware acceleration out of the box
+
 ## Tips for Contributors / Agents
 
-* Keep `MeasurementLogLik` pure (no side effects); enable JIT/autodiff later if needed.
-* Prefer square-root updates for high condition numbers or ill-scaled problems.
-* Add unit tests for: gradient correctness, Hessian positive-definiteness at the mode, and filter consistency on synthetic data.
+* All array operations use `jax.numpy` for consistency and autodiff compatibility
+* Keep `MeasurementLogLik` functions pure (no side effects) for JIT compilation
+* Prefer square-root updates for high condition numbers or ill-scaled problems
+* Add unit tests for: gradient correctness, Hessian positive-definiteness, and filter consistency
 
 ---

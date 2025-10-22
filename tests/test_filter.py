@@ -1,6 +1,7 @@
 """Tests for Laplace filter."""
 
-import numpy as np
+import jax.numpy as jnp
+import numpy as np  # For allclose compatibility
 
 from laplace.filter import LaplaceFilter, SquareRootLaplaceFilter
 from laplace.models import GaussianMeasurementModel, LinearProcessModel
@@ -9,20 +10,20 @@ from laplace.models import GaussianMeasurementModel, LinearProcessModel
 def test_laplace_filter_linear_gaussian() -> None:
     """Test Laplace filter on linear-Gaussian problem."""
     # Setup: 1D constant velocity model
-    F = np.array([[1.0, 1.0], [0.0, 1.0]])  # x_k = F x_{k-1}
-    Q = np.eye(2) * 0.01  # Small process noise
+    F = jnp.array([[1.0, 1.0], [0.0, 1.0]])  # x_k = F x_{k-1}
+    Q = jnp.eye(2) * 0.01  # Small process noise
     process = LinearProcessModel(F, Q)
 
     # Measurement: observe position only
-    def h(x: np.ndarray) -> np.ndarray:
-        return np.array([x[0]])
+    def h(x: jnp.ndarray) -> jnp.ndarray:
+        return jnp.array([x[0]])
 
-    R = np.array([[0.1]])  # Measurement noise
+    R = jnp.array([[0.1]])  # Measurement noise
     meas_model = GaussianMeasurementModel(h, R)
 
     # Initial state
-    x_true = np.array([0.0, 1.0])  # Position 0, velocity 1
-    P_init = np.eye(2) * 0.1
+    x_true = jnp.array([0.0, 1.0])  # Position 0, velocity 1
+    P_init = jnp.eye(2) * 0.1
 
     # Filter
     filt = LaplaceFilter(optimizer="trust_region", max_iter=50)
@@ -50,23 +51,23 @@ def test_laplace_filter_linear_gaussian() -> None:
 def test_laplace_filter_filter_step() -> None:
     """Test complete filter step."""
     # Simple 1D model
-    F = np.array([[1.0]])
-    Q = np.array([[0.01]])
+    F = jnp.array([[1.0]])
+    Q = jnp.array([[0.01]])
     process = LinearProcessModel(F, Q)
 
-    def h(x: np.ndarray) -> np.ndarray:
+    def h(x: jnp.ndarray) -> jnp.ndarray:
         return x
 
-    R = np.array([[0.1]])
+    R = jnp.array([[0.1]])
     meas_model = GaussianMeasurementModel(h, R)
 
     # Initial state
     from laplace.types import FilterState
 
-    state = FilterState(mean=np.array([0.0]), cov=np.array([[1.0]]))
+    state = FilterState(mean=jnp.array([0.0]), cov=jnp.array([[1.0]]))
 
     # Measurement
-    y = np.array([1.0])
+    y = jnp.array([1.0])
     nll = meas_model.nll(y)
 
     # Filter step
@@ -82,19 +83,19 @@ def test_laplace_filter_filter_step() -> None:
 def test_square_root_filter() -> None:
     """Test square-root form of Laplace filter."""
     # 2D linear model
-    F = np.array([[1.0, 0.1], [0.0, 1.0]])
-    Q = np.eye(2) * 0.01
+    F = jnp.array([[1.0, 0.1], [0.0, 1.0]])
+    Q = jnp.eye(2) * 0.01
     process = LinearProcessModel(F, Q)
 
-    def h(x: np.ndarray) -> np.ndarray:
-        return np.array([x[0]])
+    def h(x: jnp.ndarray) -> jnp.ndarray:
+        return jnp.array([x[0]])
 
-    R = np.array([[0.1]])
+    R = jnp.array([[0.1]])
     meas_model = GaussianMeasurementModel(h, R)
 
     # Initial state
-    mu = np.array([0.0, 1.0])
-    P = np.eye(2) * 0.5
+    mu = jnp.array([0.0, 1.0])
+    P = jnp.eye(2) * 0.5
 
     # Square-root information
     from laplace.math import cov_to_sqrt_inv
@@ -117,7 +118,7 @@ def test_square_root_filter() -> None:
     assert np.allclose(P_pred, P_from_S)
 
     # Update
-    y = np.array([1.0])
+    y = jnp.array([1.0])
     nll = meas_model.nll(y)
     state = sqrt_filt.update_sqrt(mu_pred, S_pred, nll)
 
@@ -128,20 +129,20 @@ def test_square_root_filter() -> None:
 def test_laplace_filter_nonlinear_measurement() -> None:
     """Test Laplace filter with nonlinear measurement."""
     # Linear process
-    F = np.array([[1.0]])
-    Q = np.array([[0.01]])
+    F = jnp.array([[1.0]])
+    Q = jnp.array([[0.01]])
     process = LinearProcessModel(F, Q)
 
     # Nonlinear measurement: y = x^2
-    def h(x: np.ndarray) -> np.ndarray:
-        return np.array([x[0] ** 2])
+    def h(x: jnp.ndarray) -> jnp.ndarray:
+        return jnp.array([x[0] ** 2])
 
-    R = np.array([[0.1]])
+    R = jnp.array([[0.1]])
     meas_model = GaussianMeasurementModel(h, R)
 
     # Initial state
-    mu = np.array([1.0])
-    P = np.array([[0.1]])
+    mu = jnp.array([1.0])
+    P = jnp.array([[0.1]])
 
     # Filter
     filt = LaplaceFilter(optimizer="trust_region", max_iter=100)
@@ -150,7 +151,7 @@ def test_laplace_filter_nonlinear_measurement() -> None:
     mu_pred, P_pred = filt.predict(mu, P, process)
 
     # Measurement: y = 4 (suggests x ≈ ±2)
-    y = np.array([4.0])
+    y = jnp.array([4.0])
     nll = meas_model.nll(y)
 
     # Update
@@ -164,15 +165,15 @@ def test_laplace_filter_nonlinear_measurement() -> None:
 def test_filter_convergence() -> None:
     """Test that filter optimization converges."""
 
-    def h(x: np.ndarray) -> np.ndarray:
+    def h(x: jnp.ndarray) -> jnp.ndarray:
         return x
 
-    R = np.array([[0.1]])
+    R = jnp.array([[0.1]])
     meas_model = GaussianMeasurementModel(h, R)
 
-    mu_pred = np.array([0.0])
-    P_pred = np.array([[1.0]])
-    y = np.array([1.0])
+    mu_pred = jnp.array([0.0])
+    P_pred = jnp.array([[1.0]])
+    y = jnp.array([1.0])
     nll = meas_model.nll(y)
 
     # Try both optimizers

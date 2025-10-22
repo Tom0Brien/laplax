@@ -12,7 +12,8 @@ while KF/EKF/UKF assume Gaussian measurements and are sensitive to outliers.
 
 import time
 
-import numpy as np
+import jax
+import jax.numpy as jnp
 from matplotlib import pyplot as plt
 
 from laplace.filter import (
@@ -21,53 +22,61 @@ from laplace.filter import (
     LaplaceFilter,
     UnscentedKalmanFilter,
 )
-from laplace.models import LinearProcessModel, ObjectiveFunction
+from laplace.models import LinearProcessModel
 from laplace.types import FilterState
 
 
 def student_t_nll(y, h_func, R, nu=3.0):
     """
     Create a robust Student-t negative log-likelihood (heavy-tailed).
-    
+
     Student-t distribution is robust to outliers compared to Gaussian.
     As nu->infinity, Student-t approaches Gaussian.
     nu=3 gives heavy tails for robustness.
     """
-    R_inv = np.linalg.inv(R)
-    
+    R_inv = jnp.linalg.inv(R)
+
     def nll(x):
         residual = y - h_func(x)
         # Student-t NLL (approximation)
         # -log p(y|x) ∝ (nu + d)/2 * log(1 + residual^T R^{-1} residual / nu)
         mahal_dist = float(residual.T @ R_inv @ residual)
         d = len(y)
-        return 0.5 * (nu + d) * np.log(1.0 + mahal_dist / nu)
-    
+        return 0.5 * (nu + d) * jnp.log(1.0 + mahal_dist / nu)
+
     return nll
 
 
-def inject_outliers(measurements, outlier_rate=0.15, outlier_magnitude=5.0):
+def inject_outliers(measurements, outlier_rate=0.15, outlier_magnitude=5.0, key=None):
     """
     Inject random outliers into measurements.
-    
+
     Args:
         measurements: Array of measurements
         outlier_rate: Fraction of measurements to corrupt
         outlier_magnitude: How large the outliers are (multiples of normal noise)
-    
+        key: JAX random key
+
     Returns:
         Corrupted measurements and indices of outliers
     """
+    if key is None:
+        key = jax.random.PRNGKey(0)
+
     n_meas = len(measurements)
     n_outliers = int(n_meas * outlier_rate)
-    outlier_indices = np.random.choice(n_meas, n_outliers, replace=False)
-    
+
+    # Split key for choice and noise
+    key, subkey = jax.random.split(key)
+    outlier_indices = jax.random.choice(subkey, n_meas, (n_outliers,), replace=False)
+
     measurements_corrupted = measurements.copy()
-    for idx in outlier_indices:
+    for _i, idx in enumerate(outlier_indices):
         # Add large random noise
-        noise = np.random.randn(len(measurements[idx])) * outlier_magnitude
-        measurements_corrupted[idx] = measurements[idx] + noise
-    
+        key, subkey = jax.random.split(key)
+        noise = jax.random.normal(subkey, (len(measurements[int(idx)]),)) * outlier_magnitude
+        measurements_corrupted[int(idx)] = measurements[int(idx)] + noise
+
     return measurements_corrupted, outlier_indices
 
 
@@ -78,48 +87,49 @@ def run_robust_comparison():
     print("=" * 80)
 
     # Simulation parameters
-    np.random.seed(42)
+    key = jax.random.PRNGKey(42)
     dt = 0.1
     n_steps = 50
     outlier_rate = 0.20  # 20% of measurements are outliers!
     outlier_magnitude = 5.0
 
-    print(f"\nScenario:")
+    print("\nScenario:")
     print(f"  • {outlier_rate*100:.0f}% of measurements are OUTLIERS")
     print(f"  • Outlier magnitude: {outlier_magnitude}x normal noise")
-    print(f"  • Laplace filter uses robust Student-t likelihood (heavy tails)")
-    print(f"  • KF/EKF/UKF use Gaussian likelihood (sensitive to outliers)")
+    print("  • Laplace filter uses robust Student-t likelihood (heavy tails)")
+    print("  • KF/EKF/UKF use Gaussian likelihood (sensitive to outliers)")
 
     # Process model: constant velocity in 2D
-    F = np.array([[1, dt, 0, 0], [0, 1, 0, 0], [0, 0, 1, dt], [0, 0, 0, 1]])
-    Q = np.eye(4) * 0.01
+    F = jnp.array([[1, dt, 0, 0], [0, 1, 0, 0], [0, 0, 1, dt], [0, 0, 0, 1]])
+    Q = jnp.eye(4) * 0.01
     process_model = LinearProcessModel(F, Q)
 
     # Nonlinear measurement model: range and bearing
     def h(x):
         pos = x[[0, 2]]
-        r = np.sqrt(pos[0] ** 2 + pos[1] ** 2) + 1e-8
-        theta = np.arctan2(pos[1], pos[0])
-        return np.array([r, theta])
+        r = jnp.sqrt(pos[0] ** 2 + pos[1] ** 2) + 1e-8
+        theta = jnp.arctan2(pos[1], pos[0])
+        return jnp.array([r, theta])
 
     def H_jacobian(x):
         px, py = x[0], x[2]
-        r = np.sqrt(px**2 + py**2) + 1e-8
-        H = np.zeros((2, 4))
+        r = jnp.sqrt(px**2 + py**2) + 1e-8
+        H = jnp.zeros((2, 4))
         H[0, 0] = px / r
         H[0, 2] = py / r
         H[1, 0] = -py / (r**2)
         H[1, 2] = px / (r**2)
         return H
 
-    R = np.diag([0.1, 0.05])
+    R = jnp.diag(jnp.array([0.1, 0.05]))
 
     # True initial state
-    x_true = np.array([0.0, 1.0, 0.0, 0.5])
+    x_true = jnp.array([0.0, 1.0, 0.0, 0.5])
 
     # Initialize filters
-    x_init = x_true + np.random.randn(4) * 0.5
-    P_init = np.eye(4) * 1.0
+    key, subkey = jax.random.split(key)
+    x_init = x_true + jax.random.normal(subkey, (4,)) * 0.5
+    P_init = jnp.eye(4) * 1.0
 
     kf = KalmanFilter()
     ekf = ExtendedKalmanFilter()
@@ -130,24 +140,28 @@ def run_robust_comparison():
     # Generate true trajectory and measurements first
     x_true_history = [x_true.copy()]
     clean_measurements = []
-    
-    # Use a separate random state for trajectory generation
-    rng_traj = np.random.RandomState(42)
-    
+
+    # Use a separate random key for trajectory generation
+    key_traj = jax.random.PRNGKey(42)
+
     for k in range(n_steps):
+        # Split key for each random operation
+        key_traj, subkey1, subkey2 = jax.random.split(key_traj, 3)
+
         # Generate true trajectory with process noise
-        w = rng_traj.randn(4) * np.sqrt(0.01)
+        w = jax.random.normal(subkey1, (4,)) * jnp.sqrt(0.01)
         x_true = F @ x_true + w
         x_true_history.append(x_true.copy())
-        
+
         # Generate clean measurement
-        v = rng_traj.randn(2) * np.sqrt(np.diag(R))
+        v = jax.random.normal(subkey2, (2,)) * jnp.sqrt(jnp.diag(R))
         y_clean = h(x_true) + v
         clean_measurements.append(y_clean)
 
     # Inject outliers into measurements
+    key, subkey = jax.random.split(key)
     measurements, outlier_indices = inject_outliers(
-        clean_measurements, outlier_rate, outlier_magnitude
+        clean_measurements, outlier_rate, outlier_magnitude, key=subkey
     )
 
     print(f"\n  • Generated {n_steps} measurements")
@@ -203,22 +217,22 @@ def run_robust_comparison():
             elif name == "Laplace (Gaussian)":
                 # Standard Gaussian likelihood (like KF/EKF/UKF)
                 mu_pred, P_pred = laplace_gaussian.predict(x_est, P_est, process_model)
-                
+
                 # Gaussian NLL
-                R_inv = np.linalg.inv(R)
+                R_inv = jnp.linalg.inv(R)
                 def gaussian_nll(x):
                     residual = y - h(x)
                     return 0.5 * float(residual.T @ R_inv @ residual)
-                
+
                 state = laplace_gaussian.update(mu_pred, P_pred, gaussian_nll)
 
             elif name == "Laplace (Robust)":
                 # ROBUST Student-t likelihood (heavy-tailed, outlier-resistant)
                 mu_pred, P_pred = laplace_robust.predict(x_est, P_est, process_model)
-                
+
                 # Student-t NLL (robust to outliers)
                 robust_nll = student_t_nll(y, h, R, nu=3.0)
-                
+
                 state = laplace_robust.update(mu_pred, P_pred, robust_nll)
 
             elapsed = time.time() - start
@@ -231,14 +245,14 @@ def run_robust_comparison():
             print(f"Step {k + 1:3d}/{n_steps} completed")
 
     # Convert to arrays
-    x_true_history = np.array(x_true_history)
+    x_true_history = jnp.array(x_true_history)
     for name in filters:
-        estimates[name] = np.array(estimates[name])
+        estimates[name] = jnp.array(estimates[name])
 
     # Compute errors
     errors = {}
     for name in filters:
-        pos_errors = np.linalg.norm(
+        pos_errors = jnp.linalg.norm(
             estimates[name][:, [0, 2]] - x_true_history[:, [0, 2]], axis=1
         )
         errors[name] = pos_errors
@@ -254,17 +268,17 @@ def run_robust_comparison():
     print("-" * 80)
 
     for name in filters:
-        mean_err = np.mean(errors[name])
-        rms_err = np.sqrt(np.mean(errors[name] ** 2))
-        
+        mean_err = jnp.mean(errors[name])
+        rms_err = jnp.sqrt(jnp.mean(errors[name] ** 2))
+
         # Compute error during outlier measurements vs clean measurements
-        outlier_errors = errors[name][np.array(list(outlier_indices)) + 1]
+        outlier_errors = errors[name][jnp.array(list(outlier_indices)) + 1]
         clean_errors = errors[name][
             [i for i in range(1, len(errors[name])) if (i-1) not in outlier_indices]
         ]
-        outlier_impact = np.mean(outlier_errors) / (np.mean(clean_errors) + 1e-8)
-        
-        avg_time = np.mean(times[name]) * 1000
+        outlier_impact = jnp.mean(outlier_errors) / (jnp.mean(clean_errors) + 1e-8)
+
+        avg_time = jnp.mean(times[name]) * 1000
 
         print(
             f"{name:<22} {mean_err:>12.3f} {rms_err:>12.3f} "
@@ -274,7 +288,7 @@ def run_robust_comparison():
     print("=" * 80)
 
     # Plotting
-    fig = plt.figure(figsize=(16, 10))
+    plt.figure(figsize=(16, 10))
 
     # Trajectory plot
     ax1 = plt.subplot(2, 3, 1)
@@ -323,7 +337,7 @@ def run_robust_comparison():
 
     # Position errors over time with outlier markers
     ax2 = plt.subplot(2, 3, 2)
-    time_steps = np.arange(n_steps + 1)
+    time_steps = jnp.arange(n_steps + 1)
     for name in filters:
         ax2.plot(
             time_steps,
@@ -334,11 +348,11 @@ def run_robust_comparison():
             linewidth=2,
             alpha=0.7,
         )
-    
+
     # Mark outlier measurements
     for idx in outlier_indices:
         ax2.axvline(idx + 1, color="red", alpha=0.2, linewidth=0.5)
-    
+
     ax2.set_xlabel("Time Step")
     ax2.set_ylabel("Position Error (m)")
     ax2.set_title("Position Error (Red bars = Outliers)")
@@ -381,13 +395,13 @@ def run_robust_comparison():
     ax5 = plt.subplot(2, 3, 5)
     outlier_impacts = []
     for name in filters:
-        outlier_errors = errors[name][np.array(list(outlier_indices)) + 1]
+        outlier_errors = errors[name][jnp.array(list(outlier_indices)) + 1]
         clean_errors = errors[name][
             [i for i in range(1, len(errors[name])) if (i-1) not in outlier_indices]
         ]
-        impact = np.mean(outlier_errors) / (np.mean(clean_errors) + 1e-8)
+        impact = jnp.mean(outlier_errors) / (jnp.mean(clean_errors) + 1e-8)
         outlier_impacts.append(impact)
-    
+
     bars = ax5.bar(
         [n[:15] for n in filters],
         outlier_impacts,
@@ -395,10 +409,10 @@ def run_robust_comparison():
         alpha=0.7,
     )
     # Highlight the best (lowest impact)
-    best_idx = np.argmin(outlier_impacts)
+    best_idx = jnp.argmin(outlier_impacts)
     bars[best_idx].set_edgecolor('black')
     bars[best_idx].set_linewidth(3)
-    
+
     ax5.axhline(1.0, color='gray', linestyle='--', label='No impact', linewidth=1)
     ax5.set_ylabel("Error Ratio (Outlier/Clean)")
     ax5.set_title("Outlier Robustness (Lower = Better)")
@@ -408,7 +422,7 @@ def run_robust_comparison():
 
     # Computation time
     ax6 = plt.subplot(2, 3, 6)
-    avg_times = [np.mean(times[name]) * 1000 for name in filters]
+    avg_times = [jnp.mean(times[name]) * 1000 for name in filters]
     ax6.bar(
         [n[:15] for n in filters],
         avg_times,
@@ -433,10 +447,10 @@ def run_robust_comparison():
     print("[+] Laplace (Gaussian) similar to EKF/UKF -> sensitive to outliers")
     print("[+] KF/EKF/UKF assume Gaussian noise -> degraded by outliers")
     print("[+] Robust Laplace maintains low errors even during outlier measurements")
-    
-    best_filter = min(filters, key=lambda n: np.mean(errors[n]))
+
+    best_filter = min(filters, key=lambda n: jnp.mean(errors[n]))
     most_robust = min(filters, key=lambda n: outlier_impacts[list(filters.keys()).index(n)])
-    
+
     print(f"\n=> Best overall accuracy: {best_filter}")
     print(f"=> Most outlier-robust: {most_robust}")
     print("=" * 80)
@@ -444,4 +458,5 @@ def run_robust_comparison():
 
 if __name__ == "__main__":
     run_robust_comparison()
+
 

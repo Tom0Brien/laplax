@@ -1,16 +1,10 @@
 """Linear algebra helpers and numerical utilities for Laplace filtering."""
 
+import jax
 import jax.numpy as jnp
 from jax.numpy.linalg import cholesky, inv, solve
 
 from laplace.types import Array
-
-
-def _ensure_jax(x: Array) -> Array:
-    """Convert to JAX array if needed."""
-    if hasattr(x, '__array__'):  # numpy array
-        return jnp.array(x)
-    return x
 
 
 def ensure_symmetric(A: Array) -> Array:
@@ -103,56 +97,32 @@ def woodbury_identity(A_inv: Array, U: Array, C: Array, V: Array) -> Array:
 
 def numerical_gradient(f: callable, x: Array, eps: float = 1e-7) -> Array:
     """
-    Compute numerical gradient using central differences.
+    Compute gradient using JAX automatic differentiation.
 
     Args:
         f: Scalar-valued function
-        x: Point to evaluate gradient
-        eps: Finite difference step size
+        x: Point to evaluate gradient (JAX array)
+        eps: Unused (kept for API compatibility)
 
     Returns:
         Gradient vector
     """
-    x = _ensure_jax(x)
-    n = len(x)
-    grad = jnp.zeros(n)
-    for i in range(n):
-        x_plus = x.at[i].add(eps)
-        x_minus = x.at[i].add(-eps)
-        grad_i = (f(x_plus) - f(x_minus)) / (2 * eps)
-        grad = grad.at[i].set(grad_i)
-    return grad
+    return jax.grad(f)(x)
 
 
 def numerical_hessian(f: callable, x: Array, eps: float = 1e-5) -> Array:
     """
-    Compute numerical Hessian using finite differences.
+    Compute Hessian using JAX automatic differentiation.
 
     Args:
         f: Scalar-valued function
-        x: Point to evaluate Hessian
-        eps: Finite difference step size
+        x: Point to evaluate Hessian (JAX array)
+        eps: Unused (kept for API compatibility)
 
     Returns:
         Hessian matrix
     """
-    x = _ensure_jax(x)
-    n = len(x)
-    H = jnp.zeros((n, n))
-
-    for i in range(n):
-        for j in range(i, n):
-            x_pp = x.at[i].add(eps).at[j].add(eps)
-            x_pm = x.at[i].add(eps).at[j].add(-eps)
-            x_mp = x.at[i].add(-eps).at[j].add(eps)
-            x_mm = x.at[i].add(-eps).at[j].add(-eps)
-
-            H_ij = (f(x_pp) - f(x_pm) - f(x_mp) + f(x_mm)) / (4 * eps * eps)
-            H = H.at[i, j].set(H_ij)
-            if i != j:
-                H = H.at[j, i].set(H_ij)
-
-    return ensure_symmetric(H)
+    return jax.hessian(f)(x)
 
 
 def is_positive_definite(A: Array, tol: float = 1e-10) -> bool:
@@ -166,14 +136,10 @@ def is_positive_definite(A: Array, tol: float = 1e-10) -> bool:
     Returns:
         True if all eigenvalues > tol
     """
-    try:
-        # Try Cholesky decomposition - fastest for PD matrices
-        cholesky(A)
-        return True
-    except (ValueError, Exception):
-        # Fall back to eigenvalue check (JAX may raise different exceptions)
-        eigvals = jnp.linalg.eigvalsh(ensure_symmetric(A))
-        return bool(jnp.all(eigvals > tol))
+    # JAX's cholesky returns NaN instead of raising exception for non-PD matrices
+    # So we use eigenvalue check directly
+    eigvals = jnp.linalg.eigvalsh(ensure_symmetric(A))
+    return bool(jnp.all(eigvals > tol))
 
 
 def regularize_covariance(P: Array, min_eig: float = 1e-8) -> Array:
