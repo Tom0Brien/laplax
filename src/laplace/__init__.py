@@ -1,7 +1,12 @@
 """Laplace filter for Bayesian state estimation with JAX acceleration."""
 
-from laplace.filter import LaplaceFilter, SquareRootLaplaceFilter
-from laplace.kalman import ExtendedKalmanFilter, KalmanFilter, UnscentedKalmanFilter
+from laplace.filter import (
+    ExtendedKalmanFilter,
+    KalmanFilter,
+    LaplaceFilter,
+    SquareRootLaplaceFilter,
+    UnscentedKalmanFilter,
+)
 from laplace.models import (
     AnalyticLinearization,
     GaussianMeasurementModel,

@@ -15,8 +15,12 @@ import time
 import numpy as np
 from matplotlib import pyplot as plt
 
-from laplace.filter import LaplaceFilter
-from laplace.kalman import ExtendedKalmanFilter, KalmanFilter, UnscentedKalmanFilter
+from laplace.filter import (
+    ExtendedKalmanFilter,
+    KalmanFilter,
+    LaplaceFilter,
+    UnscentedKalmanFilter,
+)
 from laplace.models import (
     AnalyticLinearization,
     GaussianMeasurementModel,
